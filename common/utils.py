@@ -24,7 +24,7 @@ def success_response_builder(
             'code': code,
             'message': message or default_message
         },
-        'data': data or {}
+        'response': data or {}
     }
 
     return response
@@ -36,9 +36,7 @@ def error_response_builder(
     code: int = 400,
     default_message: str = "Failed"
 ) -> Dict[str, Any]:
-    """
-    Builds an error response dictionary with the provided parameters.
-
+    """.
     Args:
         message (Optional[str], optional): The error message. Defaults to None.
         data (Optional[Union[Dict[str, Any], List[Dict[str, Any]]]], optional): The data payload. Defaults to None.
@@ -53,7 +51,7 @@ def error_response_builder(
             'code': code,
             'message': message or default_message
         },
-        'data': data or {}
+        'response': data or {}
     }
 
     return response
