@@ -21,15 +21,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
+# SECURITY WARNING: don't run with debug turned on in production!
+env = environ.Env(
+    DEBUG=(bool, False)
+)
+
+# APP Mode
+DEBUG = True
+# load .env
+environ.Env.read_env(BASE_DIR / '.env')
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('SECRET_KEY')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = ['localhost', 'http;//127.0.0.1:8000']
-# load .env
-environ.Env.read_env(BASE_DIR / '.env')
+# ALLOWED_HOSTS = ['localhost', 'http;//127.0.0.1:8000']
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 
 # Application definition
 
@@ -40,14 +46,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # 3rd party apps
 
+    # 3rd party apps
     'rest_framework',
     'oauth2_provider',
     'corsheaders',
-    # local apps
 
-    'users'
+    # local apps
+    'users',
 ]
 
 MIDDLEWARE = [
@@ -58,7 +64,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # My custom middlewares
+    # CUSTOM MIDDLEWARES
     'corsheaders.middleware.CorsMiddleware',
 ]
 
@@ -67,7 +73,7 @@ ROOT_URLCONF = 'socihubout.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -125,6 +131,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+AUTH_USER_MODEL = 'users.User'
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
