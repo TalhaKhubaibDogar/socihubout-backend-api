@@ -35,3 +35,11 @@ ACCESS_TOKEN_NOT_SET = _("AccessToken instance is not set")
 UNEXPECTED_ERROR = _("An unexpected error occurred")
 
 PERMISSION_DENIED = _("Permission Denied.")
+
+PROFILE_DATA_RETRIVED = _("User Profile Retrived")
+
+USER_DOES_NOT_EXISTS = _("User Does Not Exists")
+
+USER_PROFILE_UPDATED_SUCCESS = _("User Profile Updated Success")
+
+BODY_CANNOT_BE_EMPTY = _("Request body cannot be empty")

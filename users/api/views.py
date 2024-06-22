@@ -20,9 +20,10 @@ from common.messages import (
     PASSWORD_RESET_SUCCESS,
     LOGIN_SUCCESS,
     LOGOUT_SUCCESS,
-    INVALID_EMAIL,
-    EMAIL_NOT_VERIFIED
-
+    PROFILE_DATA_RETRIVED,
+    USER_DOES_NOT_EXISTS,
+    USER_PROFILE_UPDATED_SUCCESS,
+    BODY_CANNOT_BE_EMPTY
 )
 from rest_framework import generics
 from rest_framework.generics import GenericAPIView
@@ -33,13 +34,14 @@ from users.api.serializers import (
     PasswordResetRequestSerializer,
     SetNewPasswordSerializer,
     LoginUserSerializer,
-    LogoutUserSerializer
+    LogoutUserSerializer,
+    UserProfileSerializer
 )
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import smart_str, DjangoUnicodeDecodeError
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils import timezone
-from users.utils import send_normal_email
+from users.utils import send_normal_email, upload_to_s3
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from users.models import (
     User,
@@ -194,6 +196,51 @@ class LogoutUserView(GenericAPIView):
             if serializer.is_valid():
                 serializer.update()
                 return Response(sr(message=LOGOUT_SUCCESS), status=RES_200)
+            return Response(er(message=serializer.errors), status=RES_400)
+        except Exception as e:
+            return Response(er(message=e.args[0]), status=RES_400)
+
+
+class UserProfileView(GenericAPIView):
+    serializer_class = UserProfileSerializer
+    permission_classes = [IsAuthenticated]
+    bucket_name = settings.AWS_STORAGE_BUCKET_NAME
+
+    def get(self, request, *args, **kwargs):
+
+        user_instance = self.request.user
+        if user_instance:
+            serializer = self.get_serializer(user_instance)
+            return Response(sr(message=PROFILE_DATA_RETRIVED, data=serializer.data), status=RES_200)
+        return Response(er(message=USER_DOES_NOT_EXISTS), status=RES_400)
+
+    def post(self, request, *args, **kwargs):
+        try:
+            email = self.request.user.email
+            serializer = self.get_serializer(data=request.data)
+            if serializer.is_valid():
+                try:
+                    user_instance = User.objects.get(email=email)
+                except User.DoesNotExist:
+                    return Response(er(message=USER_DOES_NOT_EXISTS), status=RES_400)
+
+                profile_image = request.data.get('profile_image')
+                first_name = request.data.get('first_name')
+                last_name = request.data.get('last_name')
+                print("dat", first_name, last_name)
+                if profile_image:
+                    s3_upload_files = upload_to_s3(profile_image)
+                    user_instance.s3_url_profile = s3_upload_files[0]
+                    user_instance.profile_image = s3_upload_files[1]
+                    user_instance.profile_cloudfront_url = s3_upload_files[1]
+
+                if first_name:
+                    user_instance.first_name = first_name
+                if last_name:
+                    user_instance.last_name = last_name
+                user_instance.save()
+                serializer = self.get_serializer(user_instance)
+                return Response(sr(message=USER_PROFILE_UPDATED_SUCCESS, data=serializer.data), status=RES_200)
             return Response(er(message=serializer.errors), status=RES_400)
         except Exception as e:
             return Response(er(message=e.args[0]), status=RES_400)

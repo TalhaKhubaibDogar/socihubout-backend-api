@@ -14,7 +14,8 @@ from common.messages import (
     INVALID_PASSWORD, 
     EMAIL_NOT_VERIFIED,
     INVALID_TOKEN,
-    ACCESS_TOKEN_NOT_SET
+    ACCESS_TOKEN_NOT_SET,
+    BODY_CANNOT_BE_EMPTY
 )
 
 from rest_framework import serializers
@@ -226,3 +227,28 @@ class LogoutUserSerializer(serializers.Serializer):
                 access_token=self.instance.id).update(revoked=timezone.now())
             return self.instance
         raise serializers.ValidationError(ACCESS_TOKEN_NOT_SET)
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(read_only=True)
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    profile_image = serializers.ImageField(required=False)
+
+    class Meta:
+        model = User
+        fields = ('id', 'first_name', 'last_name', 'profile_image')
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        if instance.profile_image:
+            ret['profile_image'] = instance.profile_cloudfront_url  # or s3_url_profile
+        return ret
+
+    def validate(self, attrs):
+        extra_fields = set(self.initial_data.keys()) - \
+            set(self.fields.keys())
+        if extra_fields:
+            raise serializers.ValidationError(UNKNOWN_FIELDS)
+        if not attrs:
+            raise serializers.ValidationError(BODY_CANNOT_BE_EMPTY)
+        return attrs

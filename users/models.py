@@ -81,6 +81,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     referral_code = models.CharField(max_length=8, unique=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now_add=True)
+    profile_image = models.URLField(_('Profile Picture'),blank=True, null=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name', 'role']

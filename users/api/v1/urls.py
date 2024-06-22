@@ -7,7 +7,8 @@ from users.api.views import (
     SetNewPasswordView,
     SuccessResetPasswordView,
     LoginUserView,
-    LogoutUserView
+    LogoutUserView,
+    UserProfileView
 )
 
 app_name = 'users_api_v1'
@@ -23,4 +24,5 @@ urlpatterns = [
          name="success-reset-password"),
     path('login/', LoginUserView.as_view(), name="user-login"),
     path('logout/', LogoutUserView.as_view(), name="user-logout"),
+    path('profile/', UserProfileView.as_view(), name="get-user-profile"),
 ]
