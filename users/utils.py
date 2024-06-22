@@ -25,3 +25,42 @@ def send_normal_email(data):
     )
     email.content_subtype = 'html'
     email.send()
+
+class UserAccessToken(object):
+    ''' UserAccessToken '''
+
+    def __init__(self, request, user):
+        self.request = request
+        self.user = user
+
+    def create_oauth_token(self):
+        '''
+        Create Outh token by user_id and application name
+        '''
+        scopes = 'read write'
+        expires = timezone.now() + timezone.timedelta(hours=settings.USER_TOKEN_EXPIRES)
+        access_token = AccessToken.objects.create(
+            user=self.user,
+            token=random_token_generator(self.request),
+            expires=expires,
+            scope=scopes)
+
+        refresh_token = RefreshToken.objects.create(
+            user=self.user,
+            token=random_token_generator(self.request),
+            access_token=access_token,
+            revoked=timezone.now() + timezone.timedelta(minutes=settings.REFRESH_TOKEN_EXPIRES)
+        )
+        tokens = dict()
+        tokens['access_token'] = access_token
+        tokens['refresh_token'] = refresh_token
+        return tokens
+
+    def revoke_oauth_tokens(self):
+        '''
+        revoke existing auth tokens so that user is logged out from existing sessions first
+        '''
+        RefreshToken.objects.filter(
+            user=self.user).update(revoked=timezone.now())
+        AccessToken.objects.filter(
+            user=self.user).update(expires=timezone.now())

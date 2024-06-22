@@ -1,4 +1,3 @@
-from rest_framework import generics
 from rest_framework.status import (
     HTTP_200_OK as RES_200,
     HTTP_201_CREATED as RES_201,
@@ -9,16 +8,37 @@ from rest_framework.status import (
     HTTP_404_NOT_FOUND as RES_404,
     HTTP_500_INTERNAL_SERVER_ERROR as RES_500,
 )
+from common.messages import (
+    OTP_SENT,
+    OTP_RESENT,
+    OTP_EMAIL_SUBJECT,
+    USER_EXISTS,
+    USER_VERIFIED,
+    INVALID_OTP,
+    CHECK_EMAIL_RESET_PASSWORD,
+    NO_ACCOUNT_EXISTS,
+    PASSWORD_RESET_SUCCESS,
+    LOGIN_SUCCESS,
+    LOGOUT_SUCCESS,
+    INVALID_EMAIL,
+    EMAIL_NOT_VERIFIED
+
+)
+from rest_framework import generics
 from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
 from users.api.serializers import (
     UserSignUpSerializer,
     VerifyUserEmailSerializer,
+    PasswordResetRequestSerializer,
+    SetNewPasswordSerializer,
+    LoginUserSerializer,
+    LogoutUserSerializer
 )
-# from django.utils.http import urlsafe_base64_decode
-# from django.utils.encoding import smart_str, DjangoUnicodeDecodeError
-# from django.contrib.auth.tokens import PasswordResetTokenGenerator
-# from django.utils import timezone
+from django.utils.http import urlsafe_base64_decode
+from django.utils.encoding import smart_str, DjangoUnicodeDecodeError
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils import timezone
 from users.utils import send_normal_email
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from users.models import (
@@ -26,17 +46,16 @@ from users.models import (
     OneTimePassword,
 )
 import random
-# from django.contrib.sites.shortcuts import get_current_site
-# from django.conf import settings
+from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 # from rest_framework.pagination import CursorPagination
 # from django.shortcuts import get_object_or_404
-# from rest_framework.exceptions import ValidationError, ParseError
+from rest_framework.exceptions import ValidationError, ParseError
 from django.template.loader import render_to_string
-# from django.views.generic import TemplateView
-# from users.permissions import IsHostUser, IsNormalUser
-# import traceback
-# from django.db.models import Q
+from django.views.generic import TemplateView
+from users.permissions import IsHostUser, IsNormalUser
+import traceback
+from django.db.models import Q
 from common.utils import success_response_builder as sr
 from common.utils import error_response_builder as er
 
@@ -53,16 +72,9 @@ class SignUpView(GenericAPIView):
                 otp = self.generate_otp()
                 self.save_otp(user, otp, user.email)
                 self.send_verification_email(user.email, user.first_name, otp)
-                return Response(sr(code=201, message="OTP Resent to your Email"), status=RES_201)
+                return Response(sr(code=201, message=OTP_SENT), status=RES_201)
             else:
-                return Response({
-                    'code': status.HTTP_400_BAD_REQUEST,
-                    'message_code': 'Failed',
-                    'data': {
-                        'message': 'Account Already Exists! Please login'
-                    }
-                }, status=status.HTTP_400_BAD_REQUEST)
-                return Response(sr(code=201, message="OTP Resent to your Email"), status=RES_201)
+                return Response(er(code=400, message=USER_EXISTS), status=RES_400)
 
         except ObjectDoesNotExist:
             if serializer.is_valid(raise_exception=True):
@@ -70,19 +82,8 @@ class SignUpView(GenericAPIView):
                 otp = self.generate_otp()
                 self.save_otp(user, otp, user.email)
                 self.send_verification_email(user.email, user.first_name, otp)
-                return Response({
-                    'code': status.HTTP_201_CREATED,
-                    'message_code': 'Success',
-                    'data': {
-                        "message": "OTP sent to your email"
-                    },
-                }, status=status.HTTP_201_CREATED)
-
-        return Response({
-            'code': status.HTTP_400_BAD_REQUEST,
-            'message_code': 'Error',
-            'data': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+                return Response(sr(code=200, message=OTP_RESENT), status=RES_200)
+        return Response(er(message=serializer.errors))
 
     def generate_otp(self):
         return random.randint(100000, 999999)
@@ -101,7 +102,7 @@ class SignUpView(GenericAPIView):
         html_content = render_to_string('signup_template.html', context)
         email_data = {
             'email_body': html_content,
-            'email_subject': "Thanks for SignUp On SociHubOut",
+            'email_subject': OTP_EMAIL_SUBJECT,
             'to_email': email,
         }
         send_normal_email(email_data)
@@ -125,18 +126,74 @@ class VerifyUserEmailView(GenericAPIView):
             if not user.is_verified:
                 user.is_verified = True
                 user.save()
-                return Response({
-                    "code": status.HTTP_200_OK,
-                    "message_code": "Success",
-                    "data": {
-                        'message': 'User Verified!'
-                    }
-                }, status=status.HTTP_200_OK)
+                return Response(sr(message=USER_VERIFIED), status=RES_200)
         except OneTimePassword.DoesNotExist as e:
-            return Response({
-                "code": status.HTTP_400_BAD_REQUEST,
-                "message_code": "Failed",
-                "data": {
-                    'message': 'Invalid OTP!'
-                }
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return Response(er(message=INVALID_OTP), status=RES_404)
+
+
+class PasswordResetRequestView(GenericAPIView):
+    serializer_class = PasswordResetRequestSerializer
+
+    def post(self, request):
+        try:
+            serializer = self.serializer_class(
+                data=request.data, context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            return Response(sr(code=200, message=CHECK_EMAIL_RESET_PASSWORD), status=RES_200)
+        except Exception as e:
+            return Response(er(message=e.args[0]), status=RES_404)
+
+
+class PasswordResetConfirmView(TemplateView):
+    template_name = 'set_password.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['Base_URL'] = settings.BASE_URL
+        return context
+
+
+class SetNewPasswordView(GenericAPIView):
+    serializer_class = SetNewPasswordSerializer
+
+    def patch(self, request):
+        try:
+            serializer = self.serializer_class(data=request.data)
+            if serializer.is_valid():
+                return Response(sr(message=PASSWORD_RESET_SUCCESS), status=RES_200)
+            return Response(er(message=serializer.errors), status=RES_400)
+        except ValidationError as e:
+            return Response(er(message=e.args[0]), status=RES_400)
+
+
+class SuccessResetPasswordView(TemplateView):
+    template_name = 'success_password_reset.html'
+
+
+class LoginUserView(GenericAPIView):
+    serializer_class = LoginUserSerializer
+
+    def post(self, request):
+        try:
+            serializer = self.serializer_class(
+                data=request.data, context={'request': request})
+            if serializer.is_valid():
+                return Response(sr(message=LOGIN_SUCCESS, data=serializer.data), status=RES_200)
+            return Response(er(message=serializer.errors), status=RES_400)
+        except Exception as e:
+            return Response(er(message=e.args[0]), status=RES_400)
+
+
+class LogoutUserView(GenericAPIView):
+    serializer_class = LogoutUserSerializer
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            serializer = self.serializer_class(data=request.data)
+            if serializer.is_valid():
+                serializer.update()
+                return Response(sr(message=LOGOUT_SUCCESS), status=RES_200)
+            return Response(er(message=serializer.errors), status=RES_400)
+        except Exception as e:
+            return Response(er(message=e.args[0]), status=RES_400)
