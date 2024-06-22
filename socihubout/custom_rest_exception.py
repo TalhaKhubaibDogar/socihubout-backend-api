@@ -2,7 +2,11 @@ from rest_framework.views import exception_handler
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
-
+from common.utils import error_response_builder as er
+from common.messages import (
+    UNEXPECTED_ERROR,
+    PERMISSION_DENIED
+)
 
 def custom_exception_handler(exc, context):
     response = exception_handler(exc, context)
@@ -21,14 +25,10 @@ def custom_exception_handler(exc, context):
                 }
                 response.data = custom_response_data
             else:
-                custom_response_data = {
-                    "code": response.status_code,
-                    "message_code": "Permission Denied",
-                    "data": {
-                        "message": str(exc)
-                    }
-                }
+
+                custom_response_data = er(code=401, default_message=PERMISSION_DENIED ,message=str(exc))
                 response.data = custom_response_data
+
 
         elif response.status_code == 404 and isinstance(exc, NotFound):
             if 'Invalid cursor' in str(exc.detail):
@@ -89,14 +89,7 @@ def custom_exception_handler(exc, context):
                     }
                 }
     else:
-        # If response is None, return a default error response
-        response = Response({  # Return a Response object
-            "code": 500,
-            "message_code": "Internal Server Error",
-            "data": {
-                "message": "An unexpected error occurred"
-            }
-        }, status=500)
+        response = Response(er(code=500, message=UNEXPECTED_ERROR), status=500)
 
     # Set exception attribute if response has status_code attribute
     if hasattr(response, 'status_code'):
