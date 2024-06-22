@@ -160,10 +160,11 @@ class LoginUserSerializer(serializers.ModelSerializer):
     refresh_token = serializers.CharField(max_length=2000, read_only=True)
     expire_on = serializers.CharField(read_only=True)
     is_new = serializers.BooleanField(read_only=True)
+    profile_image = serializers.URLField(read_only=True)
 
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'email', 'is_new',
+        fields = ['id', 'first_name', 'last_name', 'email', 'is_new', 'profile_image',
                   'password', 'full_name', 'role', 'access_token', 'refresh_token', 'expire_on', 'referral_code']
 
     def validate(self, attrs):
@@ -193,6 +194,7 @@ class LoginUserSerializer(serializers.ModelSerializer):
             'full_name': user_data.get_full_name,
             'first_name': user_info.first_name,
             'last_name': user_info.last_name,
+            'profile_image' : user_info.profile_image,
             'is_new': is_new_user,
             'role': user_info.role,
             'referral_code': referral_code,

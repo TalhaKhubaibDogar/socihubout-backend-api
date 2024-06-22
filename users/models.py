@@ -9,7 +9,6 @@ from django.core.exceptions import ValidationError
 from users.models_utils import encode_sha256_base32
 import uuid
 
-
 class UserManager(BaseUserManager):
     '''
     Custom User Manager
@@ -33,6 +32,7 @@ class UserManager(BaseUserManager):
             raise ValueError(_("You must provide a valid email address"))
         user.referral_code = self.generate_referral_code(kwargs['email'])
         user.save(using=self._db)
+        Wallet.objects.create(user=user)
         return user
 
     def create_superuser(self, *args, **kwargs):
@@ -125,3 +125,11 @@ class UserPreference(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.keyword.name}"
+    
+class Wallet(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='wallet')
+    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
+
+    def __str__(self):
+        return f"{self.user.email}'s Wallet"

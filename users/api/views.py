@@ -53,7 +53,7 @@ from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 # from rest_framework.pagination import CursorPagination
 # from django.shortcuts import get_object_or_404
-from rest_framework.exceptions import ValidationError, ParseError
+from rest_framework.exceptions import ValidationError
 from django.template.loader import render_to_string
 from django.views.generic import TemplateView
 from users.permissions import IsHostUser, IsNormalUser
@@ -245,6 +245,7 @@ class UserProfileView(GenericAPIView):
             return Response(er(message=serializer.errors), status=RES_400)
         except Exception as e:
             return Response(er(message=e.args[0]), status=RES_400)
+
 
 class UserPreferenceView(generics.CreateAPIView):
     serializer_class = UserPreferenceSerializer
