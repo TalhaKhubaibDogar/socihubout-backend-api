@@ -9,7 +9,6 @@ from django.core.exceptions import ValidationError
 from users.models_utils import encode_sha256_base32
 import uuid
 
-
 class UserManager(BaseUserManager):
     '''
     Custom User Manager
@@ -33,6 +32,7 @@ class UserManager(BaseUserManager):
             raise ValueError(_("You must provide a valid email address"))
         user.referral_code = self.generate_referral_code(kwargs['email'])
         user.save(using=self._db)
+        Wallet.objects.create(user=user)
         return user
 
     def create_superuser(self, *args, **kwargs):
@@ -81,6 +81,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     referral_code = models.CharField(max_length=8, unique=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now_add=True)
+    profile_image = models.URLField(_('Profile Picture'),blank=True, null=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name', 'role']
@@ -105,3 +106,30 @@ class OneTimePassword(models.Model):
 
     def __str__(self):
         return f"{self.user.first_name} - {self.user.email} - {self.otp}"
+
+class Keyword(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+
+
+class UserPreference(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='preferences')
+    keyword = models.ForeignKey(
+        Keyword, on_delete=models.CASCADE, related_name='user_preferences')
+
+    class Meta:
+        unique_together = ('user', 'keyword')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.keyword.name}"
+    
+class Wallet(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='wallet')
+    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
+
+    def __str__(self):
+        return f"{self.user.email}'s Wallet"

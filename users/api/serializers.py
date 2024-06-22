@@ -3,6 +3,8 @@ from rest_framework import status
 from users.utils import send_normal_email
 from users.models import (
     User,
+    UserPreference,
+    Keyword
 )
 from common.messages import (
     PASSWORDS_DO_NOT_MATCH,
@@ -14,7 +16,9 @@ from common.messages import (
     INVALID_PASSWORD, 
     EMAIL_NOT_VERIFIED,
     INVALID_TOKEN,
-    ACCESS_TOKEN_NOT_SET
+    ACCESS_TOKEN_NOT_SET,
+    BODY_CANNOT_BE_EMPTY,
+    PREFERENCES_LIST_EMPTY,
 )
 
 from rest_framework import serializers
@@ -156,10 +160,11 @@ class LoginUserSerializer(serializers.ModelSerializer):
     refresh_token = serializers.CharField(max_length=2000, read_only=True)
     expire_on = serializers.CharField(read_only=True)
     is_new = serializers.BooleanField(read_only=True)
+    profile_image = serializers.URLField(read_only=True)
 
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'email', 'is_new',
+        fields = ['id', 'first_name', 'last_name', 'email', 'is_new', 'profile_image',
                   'password', 'full_name', 'role', 'access_token', 'refresh_token', 'expire_on', 'referral_code']
 
     def validate(self, attrs):
@@ -189,6 +194,7 @@ class LoginUserSerializer(serializers.ModelSerializer):
             'full_name': user_data.get_full_name,
             'first_name': user_info.first_name,
             'last_name': user_info.last_name,
+            'profile_image' : user_info.profile_image,
             'is_new': is_new_user,
             'role': user_info.role,
             'referral_code': referral_code,
@@ -226,3 +232,63 @@ class LogoutUserSerializer(serializers.Serializer):
                 access_token=self.instance.id).update(revoked=timezone.now())
             return self.instance
         raise serializers.ValidationError(ACCESS_TOKEN_NOT_SET)
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(read_only=True)
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    profile_image = serializers.ImageField(required=False)
+
+    class Meta:
+        model = User
+        fields = ('id', 'first_name', 'last_name', 'profile_image')
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        if instance.profile_image:
+            ret['profile_image'] = instance.profile_cloudfront_url  # or s3_url_profile
+        return ret
+
+    def validate(self, attrs):
+        extra_fields = set(self.initial_data.keys()) - \
+            set(self.fields.keys())
+        if extra_fields:
+            raise serializers.ValidationError(UNKNOWN_FIELDS)
+        if not attrs:
+            raise serializers.ValidationError(BODY_CANNOT_BE_EMPTY)
+        return attrs
+    
+
+class KeywordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Keyword
+        fields = ['id', 'name']
+
+
+class UserPreferenceSerializer(serializers.ModelSerializer):
+    keyword = KeywordSerializer(read_only=True)
+    preferences = serializers.ListField(child=serializers.CharField())
+
+    class Meta:
+        model = UserPreference
+        fields = ['id', 'keyword', 'preferences']
+
+    def validate_preferences(self, value):
+        if not value:
+            raise ParseError(PREFERENCES_LIST_EMPTY)
+        return value
+
+    def create(self, validated_data):
+        preferences = validated_data.pop('preferences', [])
+        user = self.context['request'].user
+        user_preferences = []
+
+        for preference in preferences:
+            keyword, _ = Keyword.objects.get_or_create(name=preference)
+            if not UserPreference.objects.filter(user=user, keyword=keyword).exists():
+                user_preference = UserPreference.objects.create(
+                    user=user, keyword=keyword)
+                user_preferences.append(user_preference)
+
+        return user_preferences

@@ -14,6 +14,36 @@ from datetime import date, datetime, timedelta
 from django.utils import timezone
 from oauthlib.oauth2.rfc6749.tokens import random_token_generator
 from oauth2_provider.models import AccessToken, RefreshToken
+import uuid
+import json
+import boto3
+from rest_framework.response import Response
+from rest_framework.status import HTTP_400_BAD_REQUEST as RES_400
+from common.utils import error_response_builder as er
+
+def upload_to_s3(file_obj):
+    try:
+        bucket_name = settings.AWS_STORAGE_BUCKET_NAME
+        object_name = 'uploads'
+        s3 = boto3.client(
+            's3',
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=settings.AWS_S3_REGION_NAME
+        )
+        s3_filename = f'{uuid.uuid4()}.{file_obj.name.split(".")[-1]}'
+        s3.upload_fileobj(
+            file_obj,
+            bucket_name,
+            f'{object_name}/{s3_filename}',
+            ExtraArgs={'ACL': 'public-read'}
+        )
+        s3_base_url = f'https://{bucket_name}.s3.{settings.AWS_S3_REGION_NAME}.amazonaws.com/'
+        s3_url = f'{s3_base_url}{object_name}/{s3_filename}'
+        cloudfront_url = f"https://d29jksagrigi3r.cloudfront.net/{object_name}/{s3_filename}"
+        return s3_url, cloudfront_url
+    except Exception as e:
+        return Response(er(message=e.args[0]), status=RES_400)
 
 
 def send_normal_email(data):

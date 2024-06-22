@@ -20,4 +20,5 @@ from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/users/', include('users.api.v1.urls', namespace='users-routes')),
+    path('api/v1/', include('events.api.v1.urls', namespace='events-routes'))
 ]
