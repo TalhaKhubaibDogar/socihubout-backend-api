@@ -106,3 +106,22 @@ class OneTimePassword(models.Model):
 
     def __str__(self):
         return f"{self.user.first_name} - {self.user.email} - {self.otp}"
+
+class Keyword(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+
+
+class UserPreference(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='preferences')
+    keyword = models.ForeignKey(
+        Keyword, on_delete=models.CASCADE, related_name='user_preferences')
+
+    class Meta:
+        unique_together = ('user', 'keyword')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.keyword.name}"

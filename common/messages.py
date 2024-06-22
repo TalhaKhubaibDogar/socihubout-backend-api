@@ -43,3 +43,7 @@ USER_DOES_NOT_EXISTS = _("User Does Not Exists")
 USER_PROFILE_UPDATED_SUCCESS = _("User Profile Updated Success")
 
 BODY_CANNOT_BE_EMPTY = _("Request body cannot be empty")
+
+USER_PREFERENCES_CREATED = _("User preferences created successfully.")
+PREFERENCES_LIST_EMPTY = _("Preferences list cannot be empty.")
+INVALID_DATA = _("Invalid data")

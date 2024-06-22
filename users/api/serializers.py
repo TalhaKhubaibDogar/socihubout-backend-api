@@ -3,6 +3,8 @@ from rest_framework import status
 from users.utils import send_normal_email
 from users.models import (
     User,
+    UserPreference,
+    Keyword
 )
 from common.messages import (
     PASSWORDS_DO_NOT_MATCH,
@@ -15,7 +17,8 @@ from common.messages import (
     EMAIL_NOT_VERIFIED,
     INVALID_TOKEN,
     ACCESS_TOKEN_NOT_SET,
-    BODY_CANNOT_BE_EMPTY
+    BODY_CANNOT_BE_EMPTY,
+    PREFERENCES_LIST_EMPTY,
 )
 
 from rest_framework import serializers
@@ -228,6 +231,7 @@ class LogoutUserSerializer(serializers.Serializer):
             return self.instance
         raise serializers.ValidationError(ACCESS_TOKEN_NOT_SET)
 
+
 class UserProfileSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(read_only=True)
     first_name = serializers.CharField()
@@ -252,3 +256,37 @@ class UserProfileSerializer(serializers.ModelSerializer):
         if not attrs:
             raise serializers.ValidationError(BODY_CANNOT_BE_EMPTY)
         return attrs
+    
+
+class KeywordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Keyword
+        fields = ['id', 'name']
+
+
+class UserPreferenceSerializer(serializers.ModelSerializer):
+    keyword = KeywordSerializer(read_only=True)
+    preferences = serializers.ListField(child=serializers.CharField())
+
+    class Meta:
+        model = UserPreference
+        fields = ['id', 'keyword', 'preferences']
+
+    def validate_preferences(self, value):
+        if not value:
+            raise ParseError(PREFERENCES_LIST_EMPTY)
+        return value
+
+    def create(self, validated_data):
+        preferences = validated_data.pop('preferences', [])
+        user = self.context['request'].user
+        user_preferences = []
+
+        for preference in preferences:
+            keyword, _ = Keyword.objects.get_or_create(name=preference)
+            if not UserPreference.objects.filter(user=user, keyword=keyword).exists():
+                user_preference = UserPreference.objects.create(
+                    user=user, keyword=keyword)
+                user_preferences.append(user_preference)
+
+        return user_preferences

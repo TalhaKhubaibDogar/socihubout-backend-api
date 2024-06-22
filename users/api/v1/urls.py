@@ -8,7 +8,8 @@ from users.api.views import (
     SuccessResetPasswordView,
     LoginUserView,
     LogoutUserView,
-    UserProfileView
+    UserProfileView,
+    UserPreferenceView
 )
 
 app_name = 'users_api_v1'
@@ -25,4 +26,5 @@ urlpatterns = [
     path('login/', LoginUserView.as_view(), name="user-login"),
     path('logout/', LogoutUserView.as_view(), name="user-logout"),
     path('profile/', UserProfileView.as_view(), name="get-user-profile"),
+    path('preference/', UserPreferenceView.as_view(), name="user-prefernce"),
 ]

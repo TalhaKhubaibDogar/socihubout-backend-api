@@ -23,7 +23,7 @@ from common.messages import (
     PROFILE_DATA_RETRIVED,
     USER_DOES_NOT_EXISTS,
     USER_PROFILE_UPDATED_SUCCESS,
-    BODY_CANNOT_BE_EMPTY
+    USER_PREFERENCES_CREATED
 )
 from rest_framework import generics
 from rest_framework.generics import GenericAPIView
@@ -35,7 +35,8 @@ from users.api.serializers import (
     SetNewPasswordSerializer,
     LoginUserSerializer,
     LogoutUserSerializer,
-    UserProfileSerializer
+    UserProfileSerializer,
+    UserPreferenceSerializer
 )
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import smart_str, DjangoUnicodeDecodeError
@@ -241,6 +242,20 @@ class UserProfileView(GenericAPIView):
                 user_instance.save()
                 serializer = self.get_serializer(user_instance)
                 return Response(sr(message=USER_PROFILE_UPDATED_SUCCESS, data=serializer.data), status=RES_200)
+            return Response(er(message=serializer.errors), status=RES_400)
+        except Exception as e:
+            return Response(er(message=e.args[0]), status=RES_400)
+
+class UserPreferenceView(generics.CreateAPIView):
+    serializer_class = UserPreferenceSerializer
+    permission_classes = [IsAuthenticated, IsNormalUser]
+
+    def post(self, request, *args, **kwargs):
+        try:
+            serializer = self.get_serializer(data=request.data)
+            if serializer.is_valid():
+                user_preferences = serializer.save()
+                return Response(sr(message=USER_PREFERENCES_CREATED), status=RES_200)
             return Response(er(message=serializer.errors), status=RES_400)
         except Exception as e:
             return Response(er(message=e.args[0]), status=RES_400)
